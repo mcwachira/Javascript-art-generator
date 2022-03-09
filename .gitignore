@@ -1,0 +1,18 @@
+# Ignore node_modules folder
+node_modules
+
+# Ignore all text files
+*.txt
+
+# Ingonring all images
+*.png
+
+
+# Ignore IDE specific files
+.idea/
+.vscode/
+*.sw*
+
+#Ignoring the input folder
+
+/input
