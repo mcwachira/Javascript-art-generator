@@ -22,56 +22,54 @@ const ctx = canvas.getContext('2d')
 
 const editionSize = myAgs.length > 0 ? Number(myAgs[0]) : 1;
 
-let metadata = [];
-let attributes = [];
-let hash = [];
-let decodedHash = [];
+let metadataList = [];
+let attributesList = [];
 let dnaList = [];
 
 //writing our image on the file system
-const saveLayer = (_canvas, _edition) => {
-    fs.writeFileSync(`./output/${_edition}.png`, _canvas.toBuffer('image/png'))
+const saveImage = (_editionCount) => {
+    fs.writeFileSync(`./output/${_editionCount}.png`, canvas.toBuffer('image/png'))
     // console.log('this image is done well')
 }
 
 //function for adding our meta data
 
-const addMetaData = (_edition) => {
+const addMetaData = (_dna, _edition) => {
     let dateTime = Date.now();
     let tempMetaData = {
-        hash: hash.join(''),
-        decodedHash: decodedHash,
+        dna: _dna,
         edition: _edition,
         date: dateTime,
-        attributes: attributes,
+        attributes: attributesList,
     };
-    metadata.push(tempMetaData);
-    attributes = [];
-    hash = [];
-    decodedHash = [];
+    metadataList.push(tempMetaData);
+    dnaList.push(_dna);
+    attributesList = [];
 }
 
 
 //add our attributes function
 
-const addAttributes = (_element, _layer) => {
-    let tempAttr = {
-        id: _element.id,
-        layer: _layer.name,
-        name: _element.name,
-        rarity: _element.rarity
-
-    };
-    attributes.push(tempAttr);
-    hash.push(_layer.id);
-    hash.push(_element.id);
-    decodedHash.push({ [_layer.id]: _element.id })
+const addAttributes = (_element) => {
+    let selectedElement = _element.layer.selectedElement;
+    attributesList.push({
+        name: selectedElement.name,
+        rarity: selectedElement.rarity,
+    })
 }
 // drawing our image on a canvas
-const loadLayerImage = async (_layer) => {
+const loadLayerImg = async (_layer) => {
+    return new Promise(async (resolve) => {
+        const image = await loadImage(
+            `${_layer.location}${_layer.selectedElement.fileName}`
+        );
+        resolve({
+            layer: _layer,
+            loadedImage: image,
+        })
+    })
 
 
-    const image = await loadImage(`${_layer.location}${element.fileName}`);
 
     // console.log(`I created the ${_layer.name} layer and choose the element ${element.name}`)
     saveLayer(canvas, _edition);
@@ -80,15 +78,34 @@ const loadLayerImage = async (_layer) => {
 
 const drawElement = (_element) => {
     ctx.drawImage(
-        image,
-        _layer.position.x,
-        _layer.position.y,
-        _layer.size.width,
-        _layer.size.height
+        _element.loadedImage,
+        _element.layer.position.x,
+        _element.layer.position.y,
+        _element.layer.size.width,
+        _element.layer.size.height
     );
     addAttributes(_element)
 }
 
+const constructToDna = (_dna, _layers) => {
+
+    let DnaSegment = _dna.toString().match(/.{1,2}/g)
+    let mappedDnaToLayers = _layers.map((layer) => {
+
+        let selectedElement = layer.elements[parseInt(DnaSegment) % layer.elements.length]
+        return {
+
+            location: layer.location,
+            position: layer.position,
+            size: layer.size,
+            selectedElement: selectedElement
+
+        }
+    })
+
+    return mappedDnaToLayers;
+
+}
 
 const isDnaUnique = (dnaList = [], _dna) => {
     let foundDna = dnaList.find((i) => i === _dna);
@@ -96,26 +113,39 @@ const isDnaUnique = (dnaList = [], _dna) => {
 
 }
 const createdDna = (_len) => {
-    let randNumber = Math.floor(Number(`1e${_len}`) + Math.random() * Number(`9e${_len}`))
+    let randNumber = Math.floor(Number(`1e${_len} `) + Math.random() * Number(`9e${_len} `))
     return randNumber
 }
-const writeMetaData = () => {
-    fs.writeFileSync('./output/_metadata.json', JSON.stringify(metadata))
+const writeMetaData = (_data) => {
+    fs.writeFileSync('./output/_metadata.json', _data)
 }
 
 const startCreating = () => {
+    writeMetaData("");
     let editionCount = 1;
     while (editionCount <= editionSize) {
 
         let newDna = createdDna(layers.length * 2 - 1)
-        console.log(`DNA List  ${dnaList}`)
-        if (isDnaUnique(dnaList, newDna)) {
-            console.log(`Created ${newDna}`)
-            // layers.forEach((layer) => {
-            //     drawLayer(layer, i)
-            //     addMetaData(i)
+        console.log(`DNA List  ${dnaList} `)
 
-            dnaList.push(newDna);
+        if (isDnaUnique(dnaList, newDna)) {
+            console.log(`Created ${newDna} `)
+            let results = constructToDna(newDna, layers)
+            let loadedElements = [];  //promise array
+
+            results.forEach((layer) => {
+                loadedElements.push(loadLayerImg(layer))
+            })
+
+            Promise.all(loadedElements).then(elementArray => {
+                elementArray.forEach(element => {
+                    drawElement(element)
+                })
+                saveImage(editionCount)
+                addMetaData(newDna, editionCount)
+                console.log(`Created edition:${editionCount} with dna : ${newDna}`)
+            })
+
             editionCount++
         } else {
             console.log('dna exist')
@@ -123,14 +153,10 @@ const startCreating = () => {
         }
 
         // });
-
-
-
-
     }
 
+    writeMetaData(JSON.stringify(metadataList));
 };
 
 startCreating();
 
-writeMetaData();
