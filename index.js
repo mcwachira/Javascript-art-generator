@@ -20,12 +20,13 @@ const canvas = createCanvas(width, height);
 const ctx = canvas.getContext('2d')
 
 
-const edition = myAgs.length > 0 ? Number(myAgs[0]) : 1;
+const editionSize = myAgs.length > 0 ? Number(myAgs[0]) : 1;
 
 let metadata = [];
 let attributes = [];
 let hash = [];
 let decodedHash = [];
+let dnaList = [];
 
 //writing our image on the file system
 const saveLayer = (_canvas, _edition) => {
@@ -67,10 +68,17 @@ const addAttributes = (_element, _layer) => {
     decodedHash.push({ [_layer.id]: _element.id })
 }
 // drawing our image on a canvas
-const drawLayer = async (_layer, _edition) => {
-    let element = _layer.elements[Math.floor(Math.random() * _layer.elements.length)];
-    addAttributes(element, _layer)
+const loadLayerImage = async (_layer) => {
+
+
     const image = await loadImage(`${_layer.location}${element.fileName}`);
+
+    // console.log(`I created the ${_layer.name} layer and choose the element ${element.name}`)
+    saveLayer(canvas, _edition);
+}
+
+
+const drawElement = (_element) => {
     ctx.drawImage(
         image,
         _layer.position.x,
@@ -78,19 +86,51 @@ const drawLayer = async (_layer, _edition) => {
         _layer.size.width,
         _layer.size.height
     );
-    // console.log(`I created the ${_layer.name} layer and choose the element ${element.name}`)
-    saveLayer(canvas, _edition);
+    addAttributes(_element)
 }
 
 
-for (let i = 1; i <= edition; i++) {
-    layers.forEach((layer) => {
-        drawLayer(layer, i)
-        addMetaData(i)
-    });
-}
+const isDnaUnique = (dnaList = [], _dna) => {
+    let foundDna = dnaList.find((i) => i === _dna);
+    return foundDna === undefined ? true : false;
 
-fs.readFile('./output/_metadata.json', (err, data) => {
-    if (err) throw err;
+}
+const createdDna = (_len) => {
+    let randNumber = Math.floor(Number(`1e${_len}`) + Math.random() * Number(`9e${_len}`))
+    return randNumber
+}
+const writeMetaData = () => {
     fs.writeFileSync('./output/_metadata.json', JSON.stringify(metadata))
-})
+}
+
+const startCreating = () => {
+    let editionCount = 1;
+    while (editionCount <= editionSize) {
+
+        let newDna = createdDna(layers.length * 2 - 1)
+        console.log(`DNA List  ${dnaList}`)
+        if (isDnaUnique(dnaList, newDna)) {
+            console.log(`Created ${newDna}`)
+            // layers.forEach((layer) => {
+            //     drawLayer(layer, i)
+            //     addMetaData(i)
+
+            dnaList.push(newDna);
+            editionCount++
+        } else {
+            console.log('dna exist')
+
+        }
+
+        // });
+
+
+
+
+    }
+
+};
+
+startCreating();
+
+writeMetaData();
